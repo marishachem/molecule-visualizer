@@ -44,17 +44,17 @@ with col_ex:
 
 # ── Resolve SMILES ───────────────────────────────────────────────────────────
 def name_to_smiles(name: str):
-    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{name}/property/IsomericSMILES/JSON"
+    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{name}/property/IsomericSMILES,CanonicalSMILES/JSON"
     try:
         r = requests.get(url, timeout=8)
-        if r.status_code == 200:
-            return r.json()["PropertyTable"]["Properties"][0]["IsomericSMILES"]
-        else:
-            st.error(f"PubChem returned status {r.status_code} for '{name}'. Try SMILES input instead.")
-            return None
     except Exception as e:
         st.error(f"Network error: {e}")
         return None
+    if r.status_code != 200:
+        st.error(f"Molecule '{name}' not found in PubChem. Check the spelling or use SMILES input.")
+        return None
+    props = r.json().get("PropertyTable", {}).get("Properties", [{}])[0]
+    return props.get("IsomericSMILES") or props.get("CanonicalSMILES") or props.get("SMILES")
 
 # ── Main logic ───────────────────────────────────────────────────────────────
 if user_input:
