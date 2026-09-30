@@ -1,6 +1,8 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from rdkit import Chem
-from rdkit.Chem import Draw, Descriptors, rdMolDescriptors
+from rdkit.Chem import Draw, Descriptors, rdMolDescriptors, AllChem
+import py3Dmol
 import requests
 
 st.set_page_config(page_title="Molecule Visualizer", page_icon="🧪", layout="wide")
@@ -8,7 +10,6 @@ st.set_page_config(page_title="Molecule Visualizer", page_icon="🧪", layout="w
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    .metric-box { background: #1e2130; border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; }
     .rule-pass { color: #10b981; }
     .rule-fail { color: #ef4444; }
     </style>
@@ -56,12 +57,41 @@ def name_to_smiles(name: str):
     props = r.json().get("PropertyTable", {}).get("Properties", [{}])[0]
     return props.get("IsomericSMILES") or props.get("CanonicalSMILES") or props.get("SMILES")
 
+# ── 3D viewer ────────────────────────────────────────────────────────────────
+def show_3d(mol, style="stick"):
+    mol_h = Chem.AddHs(mol)
+    result = AllChem.EmbedMolecule(mol_h, randomSeed=42)
+    if result != 0:
+        st.warning("Could not generate 3D coordinates for this molecule.")
+        return
+    AllChem.MMFFOptimizeMolecule(mol_h)
+    sdf = Chem.MolToMolBlock(mol_h)
+
+    view = py3Dmol.view(width=500, height=380)
+    view.addModel(sdf, "mol")
+
+    if style == "stick":
+        view.setStyle({"stick": {}})
+    elif style == "sphere":
+        view.setStyle({"sphere": {"scale": 0.4}})
+    elif style == "ball-stick":
+        view.setStyle({"stick": {}, "sphere": {"scale": 0.3}})
+    elif style == "surface":
+        view.setStyle({"stick": {}})
+        view.addSurface(py3Dmol.VDW, {"opacity": 0.6, "colorscheme": "whiteCarbon"})
+
+    view.setBackgroundColor("#0e1117")
+    view.zoomTo()
+    view.spin(True)
+
+    html = view._make_html()
+    components.html(html, height=400)
+
 # ── Main logic ───────────────────────────────────────────────────────────────
 if user_input:
     smiles = user_input.strip() if mode == "SMILES string" else name_to_smiles(user_input.strip())
 
     if not smiles:
-        st.error("Molecule not found. Try a different name or switch to SMILES input.")
         st.stop()
 
     mol = Chem.MolFromSmiles(smiles)
@@ -70,25 +100,36 @@ if user_input:
         st.stop()
 
     st.divider()
-    left, right = st.columns([1, 1])
 
-    # ── Structure ─────────────────────────────────────────────────────────
-    with left:
-        st.subheader("2D Structure")
+    # ── Tabs: 2D / 3D / Properties ──────────────────────────────────────────
+    tab2d, tab3d, tabprops = st.tabs(["🖼️ 2D Structure", "🔬 3D Viewer", "📊 Properties"])
+
+    with tab2d:
         img = Draw.MolToImage(mol, size=(420, 320))
-        st.image(img, use_container_width=True)
-        st.code(smiles, language=None)
+        col_img, col_smi = st.columns([2, 1])
+        with col_img:
+            st.image(img, use_container_width=True)
+        with col_smi:
+            st.markdown("**SMILES**")
+            st.code(smiles, language=None)
 
-    # ── Properties ───────────────────────────────────────────────────────
-    with right:
-        st.subheader("Molecular Properties")
+    with tab3d:
+        style = st.selectbox(
+            "Display style",
+            ["stick", "ball-stick", "sphere", "surface"],
+            format_func=lambda s: {"stick": "Stick", "ball-stick": "Ball & Stick",
+                                   "sphere": "Space-filling", "surface": "Surface"}[s],
+        )
+        show_3d(mol, style)
+        st.caption("Drag to rotate · Scroll to zoom · The molecule spins automatically")
 
-        mw   = Descriptors.MolWt(mol)
-        logp = Descriptors.MolLogP(mol)
-        hbd  = rdMolDescriptors.CalcNumHBD(mol)
-        hba  = rdMolDescriptors.CalcNumHBA(mol)
-        tpsa = rdMolDescriptors.CalcTPSA(mol)
-        rb   = rdMolDescriptors.CalcNumRotatableBonds(mol)
+    with tabprops:
+        mw    = Descriptors.MolWt(mol)
+        logp  = Descriptors.MolLogP(mol)
+        hbd   = rdMolDescriptors.CalcNumHBD(mol)
+        hba   = rdMolDescriptors.CalcNumHBA(mol)
+        tpsa  = rdMolDescriptors.CalcTPSA(mol)
+        rb    = rdMolDescriptors.CalcNumRotatableBonds(mol)
         rings = rdMolDescriptors.CalcNumRings(mol)
         heavy = mol.GetNumHeavyAtoms()
 
@@ -114,8 +155,7 @@ if user_input:
         violations = sum(1 for _, ok in rules if not ok)
 
         for rule, ok in rules:
-            icon = "✅" if ok else "❌"
-            st.markdown(f"{icon} {rule}")
+            st.markdown(f"{'✅' if ok else '❌'} {rule}")
 
         st.divider()
         if violations == 0:

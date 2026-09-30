@@ -7,12 +7,12 @@ Built with **RDKit** and **Streamlit** as part of my bioinformatics & cheminform
 ## Features
 
 - 🔍 Search by **molecule name** (looks up PubChem) or paste a **SMILES string** directly
-- 🖼️ Renders **2D molecular structure** using RDKit
+- 🖼️ **2D structure** rendering using RDKit
+- 🔬 **Interactive 3D viewer** (py3Dmol) — drag to rotate, scroll to zoom, auto-spin
+  - 4 display styles: Stick, Ball & Stick, Space-filling, Surface
 - 📊 Calculates key **molecular properties**:
-  - Molecular weight
-  - LogP (lipophilicity)
-  - H-bond donors & acceptors
-  - TPSA, rotatable bonds, ring count
+  - Molecular weight, LogP (lipophilicity)
+  - H-bond donors & acceptors, TPSA, rotatable bonds, ring count
 - 💊 **Lipinski Rule of Five** checker — predicts oral drug-likeness
 - ⚡ Quick-load examples: Aspirin, Caffeine, Ibuprofen, Dopamine, Paracetamol
 
@@ -43,14 +43,14 @@ python3 -m streamlit run app.py
 ## What I Learned
 
 - How SMILES notation represents molecular structures
-- Using RDKit for cheminformatics (drawing, descriptors)
+- Using RDKit for cheminformatics (2D drawing, 3D conformer generation, descriptors)
+- Generating 3D coordinates with `AllChem.EmbedMolecule` + MMFF force field optimization
+- Interactive 3D visualization with py3Dmol embedded in Streamlit
 - Lipinski's Rule of Five and its role in drug discovery
 - Integrating the PubChem REST API
-- Building interactive data apps with Streamlit
 
 ## Next Steps
 
-- [ ] Add 3D structure viewer (py3Dmol)
 - [ ] Download molecule as PNG/SDF
 - [ ] Batch screening of multiple molecules
 - [ ] Drug-likeness score visualization
