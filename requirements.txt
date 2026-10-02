@@ -3,3 +3,5 @@ rdkit
 requests
 Pillow
 py3Dmol
+matplotlib
+numpy
